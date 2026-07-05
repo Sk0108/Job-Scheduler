@@ -81,16 +81,47 @@ async function generateHistory(queues: { id: string; slug: string }[], ownerId: 
       for (let i = 0; i < count; i++) {
         const jobId = randomUUID();
         const type = types[Math.floor(Math.random() * types.length)];
-        const startedAt = new Date(bucketStart + Math.floor(Math.random() * 55 * 60 * 1000));
-        const durationMs = randomDuration();
-        const finishedAt = new Date(startedAt.getTime() + durationMs);
+        const firstStartedAt = new Date(bucketStart + Math.floor(Math.random() * 55 * 60 * 1000));
         const priority = weightedPriority();
 
-        const isFailure = Math.random() < failureChance;
-        const isDeadLetter = isFailure && Math.random() < 0.4;
-        const status: JobStatus = isDeadLetter ? "DEAD_LETTER" : isFailure ? "FAILED" : "COMPLETED";
-        const attempt = isDeadLetter ? 3 + Math.floor(Math.random() * 3) : 1;
-        const errorMessage = isFailure ? ERROR_MESSAGES[Math.floor(Math.random() * ERROR_MESSAGES.length)] : null;
+        // A job only ever comes to rest as COMPLETED or DEAD_LETTER — FAILED is transient in the
+        // real system (immediately followed by a scheduled retry), so historical data should never
+        // model a job as permanently "FAILED"; that would be a state the live system can't produce.
+        const roll = Math.random();
+        const isDeadLetter = roll < failureChance * 0.4;
+        const retriedThenSucceeded = !isDeadLetter && roll < failureChance;
+        const finalStatus: JobStatus = isDeadLetter ? "DEAD_LETTER" : "COMPLETED";
+        const totalAttempts = isDeadLetter ? 3 + Math.floor(Math.random() * 3) : retriedThenSucceeded ? 2 : 1;
+
+        let cursor = firstStartedAt;
+        let lastFinishedAt = firstStartedAt;
+        let lastErrorMessage: string | null = null;
+
+        for (let attemptNumber = 1; attemptNumber <= totalAttempts; attemptNumber++) {
+          const isLastAttempt = attemptNumber === totalAttempts;
+          const attemptSucceeds = isLastAttempt && !isDeadLetter;
+          const durationMs = randomDuration();
+          const startedAt = cursor;
+          const finishedAt = new Date(startedAt.getTime() + durationMs);
+          const errorMessage = attemptSucceeds ? null : ERROR_MESSAGES[Math.floor(Math.random() * ERROR_MESSAGES.length)];
+
+          executionRows.push({
+            id: randomUUID(),
+            jobId,
+            attemptNumber,
+            status: (attemptSucceeds ? "COMPLETED" : "FAILED") as ExecutionStatus,
+            startedAt,
+            finishedAt,
+            durationMs,
+            errorMessage,
+            createdAt: startedAt,
+          });
+
+          lastFinishedAt = finishedAt;
+          lastErrorMessage = errorMessage;
+          // Next attempt (if any) follows a short backoff gap, same as the real retry delay.
+          cursor = new Date(finishedAt.getTime() + 30_000 + Math.floor(Math.random() * 4 * 60 * 1000));
+        }
 
         jobRows.push({
           id: jobId,
@@ -98,40 +129,28 @@ async function generateHistory(queues: { id: string; slug: string }[], ownerId: 
           type,
           payload: {},
           priority,
-          status,
-          runAt: startedAt,
-          attempt,
-          startedAt,
-          completedAt: status === "COMPLETED" ? finishedAt : null,
-          failedAt: status !== "COMPLETED" ? finishedAt : null,
-          lastError: errorMessage,
+          status: finalStatus,
+          runAt: firstStartedAt,
+          attempt: totalAttempts,
+          startedAt: firstStartedAt,
+          completedAt: finalStatus === "COMPLETED" ? lastFinishedAt : null,
+          failedAt: finalStatus === "DEAD_LETTER" ? lastFinishedAt : null,
+          lastError: lastErrorMessage,
           createdById: ownerId,
-          createdAt: startedAt,
-          updatedAt: finishedAt,
+          createdAt: firstStartedAt,
+          updatedAt: lastFinishedAt,
         });
 
-        executionRows.push({
-          id: randomUUID(),
-          jobId,
-          attemptNumber: attempt,
-          status: (status === "COMPLETED" ? "COMPLETED" : "FAILED") as ExecutionStatus,
-          startedAt,
-          finishedAt,
-          durationMs,
-          errorMessage,
-          createdAt: startedAt,
-        });
-
-        if (status === "DEAD_LETTER") {
+        if (finalStatus === "DEAD_LETTER") {
           dlqRows.push({
             id: randomUUID(),
             jobId,
             queueId: queue.id,
             reason: "max_retries_exhausted",
-            lastError: errorMessage,
-            attemptsMade: attempt,
+            lastError: lastErrorMessage,
+            attemptsMade: totalAttempts,
             payloadSnapshot: {},
-            movedAt: finishedAt,
+            movedAt: lastFinishedAt,
           });
         }
       }
