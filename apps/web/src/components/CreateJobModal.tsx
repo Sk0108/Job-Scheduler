@@ -1,10 +1,14 @@
 import { useState, type FormEvent } from "react";
-import { useCreateJob } from "../api/hooks";
+import { useCreateJob, useQueues } from "../api/hooks";
 import { ApiClientError } from "../api/client";
 import { Modal } from "./Modal";
 
-export function CreateJobModal({ projectId, queueId, onClose }: { projectId: string; queueId: string; onClose: () => void }) {
+/** `queueId` is optional: when creating from a queue's own page it's pre-selected and locked;
+ * when creating from the global Jobs explorer or Board, the user picks the target queue first. */
+export function CreateJobModal({ projectId, queueId, onClose }: { projectId: string; queueId?: string; onClose: () => void }) {
   const create = useCreateJob(projectId);
+  const { data: queues } = useQueues(queueId ? null : projectId);
+  const [selectedQueueId, setSelectedQueueId] = useState(queueId ?? "");
   const [type, setType] = useState("");
   const [payload, setPayload] = useState("{}");
   const [priority, setPriority] = useState(0);
@@ -16,6 +20,11 @@ export function CreateJobModal({ projectId, queueId, onClose }: { projectId: str
     e.preventDefault();
     setError(null);
 
+    if (!selectedQueueId) {
+      setError("Choose a queue for this job");
+      return;
+    }
+
     let parsedPayload: unknown;
     try {
       parsedPayload = JSON.parse(payload || "{}");
@@ -26,7 +35,7 @@ export function CreateJobModal({ projectId, queueId, onClose }: { projectId: str
 
     try {
       await create.mutateAsync({
-        queueId,
+        queueId: selectedQueueId,
         body: {
           type,
           payload: parsedPayload,
@@ -43,6 +52,19 @@ export function CreateJobModal({ projectId, queueId, onClose }: { projectId: str
   return (
     <Modal title="New job" onClose={onClose}>
       <form onSubmit={onSubmit}>
+        {!queueId && (
+          <div className="form-row">
+            <label>Queue</label>
+            <select className="select" value={selectedQueueId} onChange={(e) => setSelectedQueueId(e.target.value)} required>
+              <option value="">Choose a queue…</option>
+              {queues?.map((q) => (
+                <option key={q.id} value={q.id}>
+                  {q.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="form-row">
           <label>Job type</label>
           <input className="input mono" value={type} onChange={(e) => setType(e.target.value)} placeholder="send-welcome-email" required />

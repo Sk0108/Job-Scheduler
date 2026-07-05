@@ -768,3 +768,72 @@ tr.clickable:hover {
   max-height: 60vh;
   overflow-y: auto;
 }
+
+/* ---------------------------------------------------------------------- */
+/* Onboarding tour                                                          */
+/* ---------------------------------------------------------------------- */
+
+.tour-spotlight {
+  position: fixed;
+  z-index: 200;
+  border-radius: 10px;
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55), 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent);
+  pointer-events: none;
+}
+
+.tour-bubble {
+  position: fixed;
+  z-index: 201;
+  width: 300px;
+  max-width: calc(100vw - 32px);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+
+.tour-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+}
+
+.tour-close:hover {
+  color: var(--text);
+}
+
+.tour-step-count {
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
+.tour-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.tour-desc {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin: 0 0 14px;
+}
+
+.tour-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}

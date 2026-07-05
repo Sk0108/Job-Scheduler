@@ -11,8 +11,8 @@ export function Login() {
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [mode, setMode] = useState<"login" | "register">("login");
-  const [email, setEmail] = useState("admin@demo.io");
-  const [password, setPassword] = useState("Password123!");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -97,12 +97,6 @@ export function Login() {
         >
           {busy ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
         </motion.button>
-
-        {mode === "login" && (
-          <p className="dim" style={{ fontSize: 12, marginTop: 14 }}>
-            Demo credentials are pre-filled (seeded via <span className="mono">npm run db:seed</span>).
-          </p>
-        )}
       </motion.form>
     </div>
   );

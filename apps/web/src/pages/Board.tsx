@@ -8,6 +8,7 @@ import { useJobs, useMoveJob, useQueues } from "../api/hooks";
 import { LoadingBlock, EmptyState } from "../components/Spinner";
 import { StatusBadge } from "../components/StatusBadge";
 import { PriorityChip } from "../components/PriorityChip";
+import { CreateJobModal } from "../components/CreateJobModal";
 import { getPriorityInfo } from "../lib/priority";
 import type { Job, Queue } from "../api/types";
 
@@ -79,6 +80,7 @@ export function Board() {
   const { data: jobsPage, isLoading: jobsLoading } = useJobs(projectId, { status: BOARD_STATUSES, pageSize: 100 });
   const moveJob = useMoveJob(projectId);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
+  const [showCreateJob, setShowCreateJob] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -117,6 +119,9 @@ export function Board() {
           <h1>Board</h1>
           <span className="dim">Drag a job card between queues to move it. Double-click a card to open it.</span>
         </div>
+        <button className="btn btn-primary" onClick={() => setShowCreateJob(true)}>
+          New job
+        </button>
       </div>
 
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
@@ -139,6 +144,8 @@ export function Board() {
       </DndContext>
 
       {!queues?.length && <EmptyState>No queues yet — create one on the Queues page.</EmptyState>}
+
+      {showCreateJob && projectId && <CreateJobModal projectId={projectId} onClose={() => setShowCreateJob(false)} />}
     </div>
   );
 }

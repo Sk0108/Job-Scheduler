@@ -8,6 +8,7 @@ import {
   CalendarDays,
   ChevronsLeft,
   Cpu,
+  HelpCircle,
   KanbanSquare,
   LayoutDashboard,
   ListChecks,
@@ -23,16 +24,17 @@ import { useOrganizations, useProjects } from "../api/hooks";
 import { subscribeToProject } from "../lib/socket";
 import { useToast } from "../context/ToastContext";
 import { useTheme } from "../context/ThemeContext";
+import { OnboardingTour, ONBOARDING_DONE_KEY } from "./OnboardingTour";
 
 const NAV = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/queues", label: "Queues", icon: ListTree },
-  { to: "/board", label: "Board", icon: KanbanSquare },
-  { to: "/calendar", label: "Calendar", icon: CalendarDays },
-  { to: "/jobs", label: "Jobs", icon: ListChecks },
-  { to: "/workers", label: "Workers", icon: Cpu },
-  { to: "/dlq", label: "Dead Letter Queue", icon: AlertOctagon },
-  { to: "/settings", label: "Organization", icon: Building2 },
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, tour: "nav-dashboard" },
+  { to: "/queues", label: "Queues", icon: ListTree, tour: "nav-queues" },
+  { to: "/board", label: "Board", icon: KanbanSquare, tour: "nav-board" },
+  { to: "/calendar", label: "Calendar", icon: CalendarDays, tour: "nav-calendar" },
+  { to: "/jobs", label: "Jobs", icon: ListChecks, tour: "nav-jobs" },
+  { to: "/workers", label: "Workers", icon: Cpu, tour: "nav-workers" },
+  { to: "/dlq", label: "Dead Letter Queue", icon: AlertOctagon, tour: "nav-dlq" },
+  { to: "/settings", label: "Organization", icon: Building2, tour: "nav-settings" },
 ];
 
 const SIDEBAR_WIDTH = 220;
@@ -49,10 +51,26 @@ export function Layout() {
   const { pushToast } = useToast();
   const { theme, toggleTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("jsp_sidebar_collapsed") === "1");
+  const [tourOpen, setTourOpen] = useState(false);
 
   useEffect(() => {
     localStorage.setItem("jsp_sidebar_collapsed", collapsed ? "1" : "0");
   }, [collapsed]);
+
+  // First-time onboarding: auto-starts once per browser, right after login. Expands the sidebar
+  // first (if collapsed) so every step's target is actually visible with its label.
+  useEffect(() => {
+    if (localStorage.getItem(ONBOARDING_DONE_KEY)) return;
+    setCollapsed(false);
+    const t = setTimeout(() => setTourOpen(true), 500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function startTour() {
+    setCollapsed(false);
+    setTimeout(() => setTourOpen(true), 350);
+  }
 
   useEffect(() => {
     if (!organizationId && orgs?.length) setOrganizationId(orgs[0].id);
@@ -106,7 +124,7 @@ export function Layout() {
         animate={{ width: collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH }}
         transition={{ type: "spring", stiffness: 350, damping: 32 }}
       >
-        <div className="brand">
+        <div className="brand" data-tour="brand">
           <Timer size={20} />
           <AnimatePresence>
             {!collapsed && (
@@ -119,7 +137,7 @@ export function Layout() {
         {NAV.map((item) => {
           const Icon = item.icon;
           return (
-            <NavLink key={item.to} to={item.to} title={item.label} className={({ isActive }) => (isActive ? "active" : "")}>
+            <NavLink key={item.to} to={item.to} title={item.label} data-tour={item.tour} className={({ isActive }) => (isActive ? "active" : "")}>
               <Icon size={17} style={{ flexShrink: 0 }} />
               <AnimatePresence>
                 {!collapsed && (
@@ -153,7 +171,7 @@ export function Layout() {
       </motion.aside>
       <div className="main">
         <div className="topbar">
-          <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ display: "flex", gap: 10 }} data-tour="org-project-picker">
             <select className="select" value={organizationId ?? ""} onChange={(e) => setOrganizationId(e.target.value || null)}>
               {!orgs?.length && <option value="">No organizations</option>}
               {orgs?.map((o) => (
@@ -172,8 +190,12 @@ export function Layout() {
             </select>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button className="btn btn-sm btn-icon" onClick={startTour} title="Take the tour">
+              <HelpCircle size={15} />
+            </button>
             <motion.button
               className="btn btn-sm btn-icon"
+              data-tour="theme-toggle"
               onClick={toggleTheme}
               title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
               whileHover={{ scale: 1.08 }}
@@ -213,6 +235,7 @@ export function Layout() {
           </AnimatePresence>
         </div>
       </div>
+      <OnboardingTour open={tourOpen} onClose={() => setTourOpen(false)} />
     </div>
   );
 }

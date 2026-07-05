@@ -4,6 +4,7 @@ import { useProjectContext } from "../context/ProjectContext";
 import { JobsTable } from "../components/JobsTable";
 import { LoadingBlock, EmptyState } from "../components/Spinner";
 import { Pagination } from "../components/Pagination";
+import { CreateJobModal } from "../components/CreateJobModal";
 
 const STATUSES = ["SCHEDULED", "QUEUED", "CLAIMED", "RUNNING", "COMPLETED", "FAILED", "DEAD_LETTER", "CANCELLED"];
 
@@ -15,6 +16,7 @@ export function Jobs() {
   const [type, setType] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [showCreateJob, setShowCreateJob] = useState(false);
 
   const { data, isLoading } = useJobs(projectId, {
     queueId: queueId || undefined,
@@ -31,6 +33,9 @@ export function Jobs() {
     <div>
       <div className="page-header">
         <h1>Job Explorer</h1>
+        <button className="btn btn-primary" onClick={() => setShowCreateJob(true)}>
+          New job
+        </button>
       </div>
 
       <div className="toolbar">
@@ -63,6 +68,8 @@ export function Jobs() {
       )}
 
       {data && <Pagination page={data.page} totalPages={data.totalPages} onChange={setPage} />}
+
+      {showCreateJob && <CreateJobModal projectId={projectId} onClose={() => setShowCreateJob(false)} />}
     </div>
   );
 }
