@@ -9,10 +9,7 @@ import { pollOnce } from "./poller";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Registers this worker and starts its poll/heartbeat loops. Returns a shutdown function that
- * drains in-flight jobs and marks the worker offline — it does not touch prisma/redis, since
- * those may be shared with other in-process services (see start-combined.ts). */
-export async function startWorker(): Promise<() => Promise<void>> {
+async function main() {
   const worker = await prisma.worker.create({
     data: {
       name: config.worker.name,
@@ -72,10 +69,10 @@ export async function startWorker(): Promise<() => Promise<void>> {
   }
   pollLoopDone = pollLoop();
 
-  async function shutdown() {
+  async function shutdown(signal: string) {
     if (stopping) return;
     stopping = true;
-    logger.info({ activeJobs: semaphore.activeCount() }, "graceful shutdown initiated — no longer claiming new jobs");
+    logger.info({ signal, activeJobs: semaphore.activeCount() }, "graceful shutdown initiated — no longer claiming new jobs");
 
     await heartbeat().catch(() => undefined);
     await pollLoopDone;
@@ -88,28 +85,18 @@ export async function startWorker(): Promise<() => Promise<void>> {
     clearInterval(heartbeatTimer);
     await prisma.worker.update({ where: { id: worker.id }, data: { status: "OFFLINE", stoppedAt: new Date(), activeJobCount: 0 } });
     await publishEvent(redis, { type: "worker.offline", workerId: worker.id });
-    redis.disconnect();
 
     logger.info("worker shut down cleanly");
+    await prisma.$disconnect();
+    redis.disconnect();
+    process.exit(0);
   }
 
-  return shutdown;
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  process.on("SIGINT", () => void shutdown("SIGINT"));
 }
 
-if (require.main === module) {
-  startWorker()
-    .then((shutdown) => {
-      function handleSignal(signal: string) {
-        logger.info(`received ${signal}`);
-        void shutdown()
-          .then(() => prisma.$disconnect())
-          .then(() => process.exit(0));
-      }
-      process.on("SIGTERM", () => handleSignal("SIGTERM"));
-      process.on("SIGINT", () => handleSignal("SIGINT"));
-    })
-    .catch((err) => {
-      logger.error({ err }, "worker failed to start");
-      process.exit(1);
-    });
-}
+main().catch((err) => {
+  logger.error({ err }, "worker failed to start");
+  process.exit(1);
+});

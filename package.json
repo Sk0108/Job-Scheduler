@@ -13,7 +13,6 @@
     "dev:web": "npm run dev -w @jsp/web",
     "db:generate": "npm run generate -w @jsp/db",
     "db:migrate": "npm run migrate -w @jsp/db",
-    "db:migrate:deploy": "npm run migrate:deploy -w @jsp/db",
     "db:seed": "npm run seed -w @jsp/db",
     "test": "npm run test -w @jsp/shared && npm run test -w @jsp/core && npm run test -w @jsp/api && npm run test -w @jsp/worker",
     "build": "npm run build -w @jsp/shared && npm run build -w @jsp/db && npm run build -w @jsp/core && npm run build -w @jsp/api && npm run build -w @jsp/worker && npm run build -w @jsp/scheduler"
