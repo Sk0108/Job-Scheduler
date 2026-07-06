@@ -13,7 +13,7 @@ function required(name: string, fallback?: string): string {
 }
 
 export const config = {
-  port: parseInt(process.env.API_PORT ?? "4000", 10),
+  port: parseInt(process.env.PORT ?? process.env.API_PORT ?? "4000", 10),
   corsOrigin: process.env.CORS_ORIGIN ?? "http://localhost:5173",
   jwt: {
     accessSecret: required("JWT_ACCESS_SECRET", "dev-access-secret-change-me"),
