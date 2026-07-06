@@ -18,8 +18,8 @@ services:
     name: jsp-app
     runtime: node
     plan: free
-    buildCommand: npm ci && npm run db:generate && npm run build && npm run db:migrate:deploy
-    startCommand: node packages/api/dist/start-combined.js
+    buildCommand: npm ci && npm run db:generate && npm run build
+    startCommand: npm run db:migrate:deploy && node packages/api/dist/start-combined.js
     envVars:
       - key: NODE_ENV
         value: production
